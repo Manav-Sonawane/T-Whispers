@@ -31,7 +31,7 @@
       <header class="text-center pt-16 pb-12 px-4">
         <div class="mb-8 max-w-6xl mx-auto">
           <h1
-            class="font-display text-6xl md:text-7xl lg:text-8xl font-bold mb-6 main-title glitter"
+            class="font-display text-6xl md:text-7xl lg:text-8xl font-bold mb-6 main-title"
           >
             T-Whispers
           </h1>
@@ -103,9 +103,14 @@
         <div class="max-w-7xl mx-auto">
           <div class="masonry" id="confessionsGrid">
             <!-- Loading state -->
-            <div id="loadingState" class="col-span-full text-center py-12">
-              <div class="loading-spinner mx-auto mb-4"></div>
-              <p class="text-sm opacity-60">Loading confessions...</p>
+            <div
+              id="loadingState"
+              class="flex flex-col justify-center col-span-full py-12"
+            >
+              <div class="loading-spinner mx-12 mb-4"></div>
+              <p class="text-sm opacity-60 text-center">
+                Loading confessions...
+              </p>
             </div>
             <!-- Confession cards will be populated here -->
           </div>
