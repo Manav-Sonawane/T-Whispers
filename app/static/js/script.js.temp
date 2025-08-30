@@ -1,0 +1,13 @@
+// GLOBAL STATE
+const state = {
+  confessions: [],
+  currentSortOrder: "newest",
+  reactions: [
+    { emoji: "😂", name: "laugh", label: "Funny" },
+    { emoji: "😢", name: "cry", label: "Sad" },
+    { emoji: "😠", name: "anger", label: "Angry" },
+    { emoji: "👍", name: "thumbs_up", label: "Like" },
+    { emoji: "❤️", name: "heart", label: "Love" },
+    { emoji: "😮", name: "surprised", label: "Wow" }
+  ]
+};

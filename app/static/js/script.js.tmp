@@ -1,0 +1,248 @@
+'use strict';
+
+// GLOBAL STATE
+const state = {
+  confessions: [],
+  currentSortOrder: "newest",
+  reactions: [
+    { emoji: "😂", name: "laugh", label: "Funny" },
+    { emoji: "😢", name: "cry", label: "Sad" },
+    { emoji: "😠", name: "anger", label: "Angry" },
+    { emoji: "👍", name: "thumbs_up", label: "Like" },
+    { emoji: "❤️", name: "heart", label: "Love" },
+    { emoji: "😮", name: "surprised", label: "Wow" }
+  ]
+};
+
+// UTILITY FUNCTIONS
+const formatDate = (dateString) => {
+  const date = new Date(dateString);
+  const options = { 
+    year: 'numeric', 
+    month: 'short', 
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  };
+  return date.toLocaleDateString('en-US', options);
+};
+
+const sortByDate = (a, b, ascending = false) => {
+  const dateA = new Date(a.created_at);
+  const dateB = new Date(b.created_at);
+  return ascending ? dateA - dateB : dateB - dateA;
+};
+
+// RENDERING FUNCTIONS 
+const renderReactionButton = (reaction, count, confessionIndex) => {
+  return `
+    <button class="reaction-btn" data-reaction="${reaction.name}" onclick="reactToConfession(this, '${reaction.name}', ${confessionIndex})">
+      ${reaction.emoji} <span class="reaction-count">${count || 0}</span>
+    </button>
+  `;
+};
+
+const renderConfessionCard = (confession, index) => {
+  const formattedDate = formatDate(confession.created_at);
+  const reactionButtons = state.reactions
+    .map(reaction => renderReactionButton(reaction, confession.reactions[reaction.name], index))
+    .join('');
+    
+  return `
+    <div class="confession-card animate-on-scroll" data-index="${index}">
+      <div class="confession-header">
+        <div class="confession-meta">
+          <span class="confession-date">${formattedDate}</span>
+        </div>
+      </div>
+      <div class="confession-content">
+        <p>${confession.content}</p>
+      </div>
+      <div class="reaction-container">
+        ${reactionButtons}
+      </div>
+    </div>
+  `;
+};
+
+const renderConfessions = () => {
+  const container = document.querySelector('.confession-grid');
+  if (!container) return;
+
+  const sortedConfessions = [...state.confessions].sort((a, b) => 
+    sortByDate(a, b, state.currentSortOrder === "oldest")
+  );
+
+  container.innerHTML = sortedConfessions
+    .map((confession, index) => renderConfessionCard(confession, index))
+    .join('');
+    
+  setupScrollAnimations();
+};
+
+// API INTERACTIONS
+const fetchConfessions = async () => {
+  try {
+    const response = await fetch('/api/confessions/');
+    if (!response.ok) throw new Error('Failed to fetch confessions');
+    const data = await response.json();
+    state.confessions = data;
+    renderConfessions();
+  } catch (error) {
+    console.error('Error fetching confessions:', error);
+  }
+};
+
+const postConfession = async (content) => {
+  try {
+    const response = await fetch('/api/confessions/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ content }),
+    });
+    
+    if (!response.ok) throw new Error('Failed to post confession');
+    const newConfession = await response.json();
+    state.confessions.unshift(newConfession);
+    renderConfessions();
+    return true;
+  } catch (error) {
+    console.error('Error posting confession:', error);
+    return false;
+  }
+};
+
+const postReaction = async (confessionId, reactionType) => {
+  try {
+    const response = await fetch(`/api/confessions/${confessionId}/react`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ reaction_type: reactionType }),
+    });
+    
+    if (!response.ok) throw new Error('Failed to post reaction');
+    const updatedConfession = await response.json();
+    const index = state.confessions.findIndex(c => c.id === confessionId);
+    if (index !== -1) {
+      state.confessions[index] = updatedConfession;
+      renderConfessions();
+    }
+    return true;
+  } catch (error) {
+    console.error('Error posting reaction:', error);
+    return false;
+  }
+};
+
+// EVENT HANDLERS
+const reactToConfession = async (button, reactionType, confessionIndex) => {
+  if (!button || confessionIndex === undefined) return;
+
+  const confession = state.confessions[confessionIndex];
+  if (!confession) return;
+
+  button.disabled = true;
+  const success = await postReaction(confession.id, reactionType);
+  button.disabled = false;
+
+  if (success) {
+    button.classList.add('reacted');
+    setTimeout(() => button.classList.remove('reacted'), 1000);
+  }
+};
+
+const sortConfessions = () => {
+  const sortSelect = document.querySelector('#sort-select');
+  if (!sortSelect) return;
+  
+  state.currentSortOrder = sortSelect.value;
+  renderConfessions();
+};
+
+const clearFilters = () => {
+  const sortSelect = document.querySelector('#sort-select');
+  if (sortSelect) {
+    sortSelect.value = "newest";
+    state.currentSortOrder = "newest";
+  }
+  renderConfessions();
+};
+
+const submitConfession = async () => {
+  const textarea = document.querySelector('#confession-input');
+  const submitButton = document.querySelector('#submit-confession');
+  if (!textarea || !submitButton) return;
+
+  const content = textarea.value.trim();
+  if (!content) return;
+
+  submitButton.disabled = true;
+  const success = await postConfession(content);
+  submitButton.disabled = false;
+
+  if (success) {
+    textarea.value = '';
+    updateCharCount();
+  }
+};
+
+// UI SETUP AND INITIALIZATION
+const updateCharCount = () => {
+  const textarea = document.querySelector('#confession-input');
+  const counter = document.querySelector('#char-counter');
+  if (!textarea || !counter) return;
+  
+  const remaining = 500 - textarea.value.length;
+  counter.textContent = `${remaining} characters remaining`;
+  counter.classList.toggle('warning', remaining < 50);
+};
+
+const setupMouseEffects = () => {
+  document.querySelectorAll('.confession-card').forEach(card => {
+    card.addEventListener('mouseenter', () => card.classList.add('hover'));
+    card.addEventListener('mouseleave', () => card.classList.remove('hover'));
+  });
+};
+
+const setupEventListeners = () => {
+  const textarea = document.querySelector('#confession-input');
+  const submitButton = document.querySelector('#submit-confession');
+  const sortSelect = document.querySelector('#sort-select');
+  const clearButton = document.querySelector('#clear-filters');
+
+  if (textarea) textarea.addEventListener('input', updateCharCount);
+  if (submitButton) submitButton.addEventListener('click', submitConfession);
+  if (sortSelect) sortSelect.addEventListener('change', sortConfessions);
+  if (clearButton) clearButton.addEventListener('click', clearFilters);
+};
+
+const setupScrollAnimations = () => {
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    },
+    { threshold: 0.1 }
+  );
+
+  document.querySelectorAll('.animate-on-scroll').forEach(el => {
+    observer.observe(el);
+  });
+};
+
+// APP INITIALIZATION
+const initializeApp = async () => {
+  setupEventListeners();
+  await fetchConfessions();
+  updateCharCount();
+};
+
+// Start the app when DOM is loaded
+document.addEventListener('DOMContentLoaded', initializeApp);
